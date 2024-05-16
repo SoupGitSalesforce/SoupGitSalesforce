@@ -1,0 +1,4 @@
+- 👋 Hi, I’m @SoupGitSalesforce
+- 👀 I’m interested in learning new technical tips and hacks. 
+- 🌱 I’m currently learning Github actions
+- 💞️ I’m looking to collaborate on dev ops and salesforce new features
