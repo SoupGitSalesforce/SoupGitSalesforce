@@ -1,0 +1,68 @@
+name: Deploy to Salesforce Org
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    # Only run if PR was merged
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Salesforce CLI
+        run: |
+          npm install --global @salesforce/cli@latest
+
+      - name: Authenticate to Salesforce Org
+        run: |
+          echo "${{ secrets.SALESFORCE_ORG_AUTH_URL }}" > ./auth-file.txt
+          sf org login sfdx-url -f ./auth-file.txt -a deploy-org --set-default
+          rm ./auth-file.txt
+
+      - name: Validate Deployment
+        continue-on-error: true
+        run: |
+          sf project deploy start \
+            --target-org deploy-org \
+            --test-level RunSpecifiedTests \
+            --tests $(find . -name "*Test.cls" -type f | head -5 | tr '\n' ',') \
+            --dry-run \
+            --wait 30
+
+      - name: Deploy to Org
+        run: |
+          sf project deploy start \
+            --target-org deploy-org \
+            --wait 30 \
+            --test-level RunLocalTests
+
+      - name: Run Post-Deployment Tests
+        run: |
+          sf apex run test \
+            --target-org deploy-org \
+            --result-format json
+
+      - name: Deployment Success
+        run: |
+          echo "✅ Successfully deployed to Salesforce org!"
+
+      - name: Deployment Failure Notification
+        if: failure()
+        run: |
+          echo "❌ Deployment to Salesforce org failed!"
+          exit 1
